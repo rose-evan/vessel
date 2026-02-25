@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vessel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f3f0ea;
+      --surface: rgba(255, 255, 255, 0.76);
+      --surface-solid: rgba(255, 255, 255, 0.96);
+      --surface-dark: rgba(24, 24, 24, 0.62);
+      --border: rgba(16, 16, 16, 0.08);
+      --border-hover: rgba(255, 77, 0, 0.3);
+      --ink: #121212;
+      --ink-2: #3f3f3f;
+      --ink-3: #707070;
+      --ink-on-dark: rgba(255, 255, 255, 0.92);
+      --accent: #FF4D00;
+      --accent-soft: rgba(255, 77, 0, 0.11);
+      --accent-glow: rgba(255, 77, 0, 0.28);
+      --shadow-sm: 0 5px 16px rgba(20, 15, 10, 0.07);
+      --shadow: 0 12px 36px rgba(20, 15, 10, 0.12);
+      --shadow-lg: 0 18px 52px rgba(20, 15, 10, 0.18);
+      --radius: 18px;
+      --radius-sm: 14px;
+      --font: 'Outfit', -apple-system, system-ui, sans-serif;
+      --font-display: 'Syne', sans-serif;
+      --font-mono: 'Outfit', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body, #root {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      font-family: var(--font);
+      overflow: hidden;
+      color: var(--ink);
+    }
+
+    #root { position: relative; }
+
+    #root::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(1200px 480px at 50% 100%, rgba(255, 77, 0, 0.12), transparent 62%),
+        radial-gradient(760px 280px at 0% 0%, rgba(255, 255, 255, 0.28), transparent 70%),
+        linear-gradient(180deg, rgba(13, 13, 13, 0.05) 0%, rgba(13, 13, 13, 0) 24%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .scene-vignette {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background:
+        radial-gradient(140% 82% at 50% 58%, transparent 56%, rgba(0, 0, 0, 0.26) 100%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.12) 0%, transparent 18%, transparent 78%, rgba(0, 0, 0, 0.2) 100%);
+    }
+
+    #scene-container {
+      position: absolute;
+      inset: 0;
+    }
+
+    #scene-container canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      cursor: grab;
+    }
+
+    #scene-container canvas:active {
+      cursor: grabbing;
+    }
+
+    /* ── Top bar ────────────────────────────────────────── */
+    .top-bar {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px 0 22px;
+      background: linear-gradient(145deg, rgba(20, 20, 20, 0.65), rgba(16, 16, 16, 0.46));
+      backdrop-filter: blur(28px) saturate(135%);
+      -webkit-backdrop-filter: blur(28px) saturate(135%);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 14px;
+      box-shadow: 0 18px 40px rgba(12, 9, 7, 0.22);
+      pointer-events: none;
+      z-index: 20;
+      animation: fadeIn 1s ease both;
+    }
+
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .wordmark {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.015em;
+      color: #fff;
+      text-shadow: 0 0 16px rgba(255, 77, 0, 0.18);
+    }
+
+    .top-bar-left::after {
+      content: 'ROBOTICS SCALING DEMO';
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.6);
+      transform: translateY(1px);
+    }
+
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      pointer-events: auto;
+    }
+
+    .cumulative-stats {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .cum-stat {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .cum-stat-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink-on-dark);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+    }
+
+    .cum-stat-unit {
+      font-size: 10px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.64);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .cum-divider {
+      width: 1px;
+      height: 14px;
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: pulse 2.5s ease-in-out infinite;
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
+    }
+
+    .status-dot.loading {
+      background: var(--accent);
+      animation: pulseFast 0.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+      50% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
+    }
+
+    @keyframes pulseFast {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 77, 0, 0.4); }
+      50% { box-shadow: 0 0 0 5px rgba(255, 77, 0, 0); }
+    }
+
+    /* ── Scaling Curve ──────────────────────────────────── */
+    .scaling-panel {
+      position: absolute;
+      top: 86px;
+      right: 20px;
+      width: 324px;
+      background: linear-gradient(155deg, rgba(24, 24, 24, 0.68), rgba(20, 20, 20, 0.52));
+      backdrop-filter: blur(24px) saturate(130%);
+      -webkit-backdrop-filter: blur(24px) saturate(130%);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: 0 16px 44px rgba(0, 0, 0, 0.22);
+      z-index: 15;
+      pointer-events: none;
+      animation: fadeIn 0.8s ease 0.4s both;
+    }
+
+    .scaling-header {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.86);
+      margin-bottom: 12px;
+    }
+
+    .scaling-svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .scaling-footer {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .scaling-legend {
+      display: flex;
+      gap: 14px;
+    }
+
+    .scaling-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 9px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.76);
+    }
+
+    .scaling-legend-line {
+      width: 14px;
+      height: 2px;
+      border-radius: 1px;
+    }
+
+    .scaling-thesis {
+      font-size: 9px;
+      font-weight: 500;
+      color: #ff7a41;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Bottom stack ──────────────────────────────────── */
+    .bottom-stack {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 42px);
+      max-width: 710px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 11px;
+      pointer-events: none;
+      z-index: 20;
+      animation: enterBottom 0.7s ease 0.2s both;
+    }
+
+    /* ── Data Panel ──────────────────────────────────────── */
+    .data-panel {
+      width: 100%;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.7));
+      backdrop-filter: blur(30px) saturate(130%);
+      -webkit-backdrop-filter: blur(30px) saturate(130%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 18px 22px;
+      box-shadow: var(--shadow);
+      pointer-events: auto;
+      animation: cardIn 0.4s ease-out;
+    }
+
+    .data-panel-narration {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #65615b;
+      margin-bottom: 15px;
+      font-weight: 400;
+    }
+
+    .data-panel-narration::before {
+      content: '\203A  ';
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .data-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .data-metric {
+      text-align: center;
+      padding: 12px 8px 10px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(247, 243, 237, 0.86));
+      border: 1px solid rgba(255, 255, 255, 0.86);
+    }
+
+    .data-metric-value {
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+
+    .data-metric-suffix {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ink-2);
+    }
+
+    .data-metric-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      margin-top: 4px;
+    }
+
+    .loading-card {
+      width: 100%;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.72));
+      backdrop-filter: blur(30px) saturate(130%);
+      -webkit-backdrop-filter: blur(30px) saturate(130%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 58px;
+      padding: 16px 20px;
+      pointer-events: auto;
+    }
+
+    .loading-dots {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .loading-dots span {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: dotBounce 1.2s ease-in-out infinite;
+    }
+
+    .loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes dotBounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.25; }
+      30% { transform: translateY(-5px); opacity: 1; }
+    }
+
+    /* ── Chips ──────────────────────────────────────────── */
+    .chips-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      pointer-events: auto;
+    }
+
+    .chip {
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 18px;
+      border-radius: 100px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(252, 249, 245, 0.85));
+      backdrop-filter: blur(16px) saturate(120%);
+      -webkit-backdrop-filter: blur(16px) saturate(120%);
+      border: 1px solid var(--border);
+      color: #4f4a45;
+      cursor: pointer;
+      transition: all 0.22s ease;
+      font-family: var(--font);
+      user-select: none;
+      white-space: nowrap;
+      box-shadow: 0 8px 20px rgba(30, 20, 12, 0.07);
+    }
+
+    .chip:hover {
+      background: rgba(255, 241, 234, 0.95);
+      border-color: rgba(255, 77, 0, 0.28);
+      color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 22px rgba(255, 77, 0, 0.16);
+    }
+
+    .chip:active { transform: translateY(0); }
+    .chip:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ── Input bar ─────────────────────────────────────── */
+    .input-bar {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-solid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 6px 6px 16px;
+      box-shadow: var(--shadow);
+      transition: border-color 0.25s, box-shadow 0.25s;
+      pointer-events: auto;
+    }
+
+    .input-bar:focus-within {
+      border-color: var(--border-hover);
+      box-shadow: 0 14px 34px rgba(255, 77, 0, 0.17);
+    }
+
+    .input-field {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--ink);
+      outline: none;
+      font-family: var(--font);
+      padding: 10px 0;
+    }
+
+    .input-field::placeholder { color: #9d948a; font-weight: 300; }
+
+    .send-btn {
+      height: 42px;
+      min-width: 96px;
+      padding: 0 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, #ff6a2a 0%, #ff4d00 100%);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      box-shadow: 0 10px 18px var(--accent-glow);
+    }
+
+    .send-btn:hover { transform: translateY(-1px); filter: brightness(1.04); }
+    .send-btn:disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+      background: linear-gradient(180deg, #d7d0c8 0%, #cac2ba 100%);
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* ── Animations ────────────────────────────────────── */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes enterBottom {
+      from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(6px); filter: blur(3px); }
+      to { opacity: 1; transform: translateY(0); filter: blur(0); }
+    }
+
+    /* ── Responsive ────────────────────────────────────── */
+    @media (max-width: 700px) {
+      .scaling-panel { display: none; }
+      .data-metrics { grid-template-columns: repeat(2, 1fr); }
+      .data-metric-value { font-size: 22px; }
+      .cumulative-stats { display: none; }
+      .top-bar {
+        left: 10px;
+        right: 10px;
+        top: 10px;
+        height: 50px;
+      }
+      .top-bar-left::after { display: none; }
+      .bottom-stack {
+        width: calc(100% - 20px);
+        bottom: 16px;
+      }
+      .chip {
+        padding: 8px 14px;
+      }
+      .input-bar {
+        padding-left: 12px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/DRACOLoader.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // =========================================================================
+    // GEOMETRY HELPERS
+    // =========================================================================
+    function mkMat(color, roughness = 0.3, metalness = 0.8) {
+      return new THREE.MeshStandardMaterial({ color, roughness, metalness });
+    }
+    function mkBox(w, h, d, mat) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      m.castShadow = true; m.receiveShadow = true; return m;
+    }
+    function mkCyl(rt, rb, h, seg, mat) {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat);
+      m.castShadow = true; m.receiveShadow = true; return m;
+    }
+    function mkSphere(r, mat, ws = 18, hs = 14) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(r, ws, hs), mat);
+      m.castShadow = true; return m;
+    }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function smoothstep(t) { return t * t * (3 - 2 * t); }
+
+    // =========================================================================
+    // UNITREE B2 — Procedural quadruped fallback
+    // =========================================================================
+    function buildB2() {
+      const BODY  = new THREE.MeshStandardMaterial({ color: 0x1a1a22, roughness: 0.35, metalness: 0.85 });
+      const BODY2 = new THREE.MeshStandardMaterial({ color: 0x222230, roughness: 0.30, metalness: 0.80 });
+      const JOINT = new THREE.MeshStandardMaterial({ color: 0x111118, roughness: 0.50, metalness: 0.70 });
+      const ACCENT = new THREE.MeshStandardMaterial({
+        color: 0xFF4D00, roughness: 0.3, metalness: 0.5,
+        emissive: new THREE.Color(0xFF4D00), emissiveIntensity: 0.3,
+      });
+      const SENSOR = new THREE.MeshStandardMaterial({
+        color: 0x44aaff, roughness: 0.0, metalness: 1.0,
+        emissive: new THREE.Color(0x2288cc), emissiveIntensity: 1.5,
+      });
+
+      const root = new THREE.Group();
+
+      // ── Body group ──
+      const bodyGroup = new THREE.Group();
+      bodyGroup.position.y = 0.45;
+      root.add(bodyGroup);
+
+      // Main chassis
+      const chassis = mkBox(0.35, 0.16, 0.72, BODY);
+      bodyGroup.add(chassis);
+
+      // Top panel
+      const topPanel = mkBox(0.30, 0.02, 0.62, BODY2);
+      topPanel.position.y = 0.09;
+      bodyGroup.add(topPanel);
+
+      // Side accent strips
+      for (const side of [-1, 1]) {
+        const strip = mkBox(0.005, 0.012, 0.50, ACCENT);
+        strip.position.set(side * 0.178, 0.02, 0);
+        bodyGroup.add(strip);
+      }
+
+      // Rear accent bar
+      const rearBar = mkBox(0.20, 0.01, 0.01, ACCENT);
+      rearBar.position.set(0, 0.05, -0.365);
+      bodyGroup.add(rearBar);
+
+      // ── Head / sensor module ──
+      const headGroup = new THREE.Group();
+      headGroup.position.set(0, 0.04, 0.42);
+      bodyGroup.add(headGroup);
+
+      const headBox = mkBox(0.22, 0.10, 0.14, BODY);
+      headGroup.add(headBox);
+
+      // Sensor bar (cyan emissive)
+      const sensorBar = mkBox(0.16, 0.02, 0.01, SENSOR);
+      sensorBar.position.set(0, 0.015, 0.075);
+      headGroup.add(sensorBar);
+
+      // Camera eyes
+      for (const side of [-1, 1]) {
+        const eye = mkCyl(0.012, 0.012, 0.015, 8, SENSOR);
+        eye.rotation.x = Math.PI / 2;
+        eye.position.set(side * 0.055, 0, 0.078);
+        headGroup.add(eye);
+      }
+
+      // LIDAR dome
+      const lidar = mkCyl(0.035, 0.035, 0.025, 14, mkMat(0x333340, 0.4, 0.7));
+      lidar.position.set(0, 0.075, -0.02);
+      headGroup.add(lidar);
+      const lidarTop = mkCyl(0.025, 0.010, 0.015, 14, mkMat(0x444450, 0.3, 0.6));
+      lidarTop.position.set(0, 0.095, -0.02);
+      headGroup.add(lidarTop);
+
+      // ── Legs ──
+      function buildLeg(fx, fz) {
+        const legGroup = new THREE.Group();
+        legGroup.position.set(fx * 0.135, -0.08, fz * 0.27);
+        bodyGroup.add(legGroup);
+
+        // Hip motor
+        const hipMotor = mkCyl(0.035, 0.035, 0.055, 10, JOINT);
+        hipMotor.rotation.z = Math.PI / 2;
+        hipMotor.position.x = fx * 0.015;
+        legGroup.add(hipMotor);
+
+        // Upper leg group (pivots at hip)
+        const upperGroup = new THREE.Group();
+        legGroup.add(upperGroup);
+
+        const upper = mkBox(0.038, 0.16, 0.038, BODY);
+        upper.position.y = -0.08;
+        upperGroup.add(upper);
+
+        // Knee motor
+        const kneeMotor = mkCyl(0.028, 0.028, 0.045, 8, JOINT);
+        kneeMotor.rotation.z = Math.PI / 2;
+        kneeMotor.position.y = -0.16;
+        upperGroup.add(kneeMotor);
+
+        // Lower leg group (pivots at knee)
+        const lowerGroup = new THREE.Group();
+        lowerGroup.position.y = -0.16;
+        upperGroup.add(lowerGroup);
+
+        const lower = mkBox(0.032, 0.16, 0.032, BODY);
+        lower.position.y = -0.08;
+        lowerGroup.add(lower);
+
+        // Foot pad
+        const foot = mkCyl(0.020, 0.024, 0.012, 8, mkMat(0x333340, 0.8, 0.2));
+        foot.position.y = -0.165;
+        lowerGroup.add(foot);
+
+        return { group: legGroup, upper: upperGroup, lower: lowerGroup };
+      }
+
+      const legFL = buildLeg(-1, 1);
+      const legFR = buildLeg(1, 1);
+      const legBL = buildLeg(-1, -1);
+      const legBR = buildLeg(1, -1);
+
+      const parts = { root, body: bodyGroup, head: headGroup, legFL, legFR, legBL, legBR };
+      return { group: root, parts };
+    }
+
+    // =========================================================================
+    // QUADRUPED POSES
+    // =========================================================================
+    function idlePose(t) {
+      const breathe = Math.sin(t * 1.5) * 0.006;
+      return {
+        bodyY: breathe,
+        bodyRoll: Math.sin(t * 0.7) * 0.004,
+        bodyPitch: 0,
+        headYaw: Math.sin(t * 0.5) * 0.06,
+        headPitch: Math.sin(t * 0.8) * 0.025,
+        flHip: 0, flKnee: 0,
+        frHip: 0, frKnee: 0,
+        blHip: 0, blKnee: 0,
+        brHip: 0, brKnee: 0,
+      };
+    }
+
+    function trotPose(t) {
+      const f = 4;
+      const s = Math.sin(t * f);
+      const swing = 0.32;
+      return {
+        bodyY: Math.abs(Math.sin(t * f * 2)) * 0.012,
+        bodyRoll: s * 0.014,
+        bodyPitch: Math.cos(t * f * 2) * 0.008,
+        headYaw: 0,
+        headPitch: 0.03,
+        flHip: s * swing,
+        brHip: s * swing,
+        frHip: -s * swing,
+        blHip: -s * swing,
+        flKnee: Math.max(0, s) * 0.35,
+        brKnee: Math.max(0, s) * 0.35,
+        frKnee: Math.max(0, -s) * 0.35,
+        blKnee: Math.max(0, -s) * 0.35,
+      };
+    }
+
+    function sitPose(t) {
+      const breathe = Math.sin(t * 1.2) * 0.004;
+      return {
+        bodyY: -0.11 + breathe,
+        bodyRoll: 0,
+        bodyPitch: -0.12,
+        headYaw: Math.sin(t * 0.5) * 0.08,
+        headPitch: -0.05,
+        flHip: -0.1, flKnee: 0.15,
+        frHip: -0.1, frKnee: 0.15,
+        blHip: 0.65, blKnee: -0.55,
+        brHip: 0.65, brKnee: -0.55,
+      };
+    }
+
+    function inspectPose(t) {
+      return {
+        bodyY: -0.06,
+        bodyRoll: Math.sin(t * 0.4) * 0.01,
+        bodyPitch: 0.06,
+        headYaw: Math.sin(t * 1.0) * 0.45,
+        headPitch: 0.12 + Math.sin(t * 0.7) * 0.04,
+        flHip: -0.08, flKnee: 0.12,
+        frHip: -0.08, frKnee: 0.12,
+        blHip: 0.05, blKnee: -0.08,
+        brHip: 0.05, brKnee: -0.08,
+      };
+    }
+
+    function alertPose(t) {
+      const twitch = Math.sin(t * 8) * 0.02;
+      return {
+        bodyY: 0.025,
+        bodyRoll: twitch * 0.3,
+        bodyPitch: -0.04,
+        headYaw: twitch,
+        headPitch: -0.12,
+        flHip: -0.05, flKnee: 0.06,
+        frHip: -0.05, frKnee: 0.06,
+        blHip: 0.08, blKnee: -0.12,
+        brHip: 0.08, brKnee: -0.12,
+      };
+    }
+
+    function patrolPose(t) {
+      const f = 2.2;
+      const s = Math.sin(t * f);
+      const swing = 0.22;
+      return {
+        bodyY: Math.abs(Math.sin(t * f * 2)) * 0.008,
+        bodyRoll: s * 0.008,
+        bodyPitch: 0,
+        headYaw: Math.sin(t * 0.55) * 0.4,
+        headPitch: 0.04 + Math.sin(t * 0.7) * 0.04,
+        flHip: s * swing,
+        brHip: s * swing,
+        frHip: -s * swing,
+        blHip: -s * swing,
+        flKnee: Math.max(0, s) * 0.25,
+        brKnee: Math.max(0, s) * 0.25,
+        frKnee: Math.max(0, -s) * 0.25,
+        blKnee: Math.max(0, -s) * 0.25,
+      };
+    }
+
+    const QUAD_POSES = {
+      idle: idlePose, trot: trotPose, sit: sitPose,
+      inspect: inspectPose, alert: alertPose, patrol: patrolPose,
+    };
+
+    // =========================================================================
+    // BLEND + APPLY (QUADRUPED)
+    // =========================================================================
+    function blendPoses(a, b, t) {
+      const out = {}, keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+      for (const k of keys) out[k] = lerp(a[k] ?? 0, b[k] ?? 0, t);
+      return out;
+    }
+
+    function applyQuadPose(parts, p) {
+      const { body, head, legFL, legFR, legBL, legBR } = parts;
+      body.position.y   = 0.45 + (p.bodyY || 0);
+      body.rotation.z   = p.bodyRoll || 0;
+      body.rotation.x   = p.bodyPitch || 0;
+      head.rotation.y   = p.headYaw || 0;
+      head.rotation.x   = p.headPitch || 0;
+      legFL.upper.rotation.x = p.flHip || 0;
+      legFL.lower.rotation.x = p.flKnee || 0;
+      legFR.upper.rotation.x = p.frHip || 0;
+      legFR.lower.rotation.x = p.frKnee || 0;
+      legBL.upper.rotation.x = p.blHip || 0;
+      legBL.lower.rotation.x = p.blKnee || 0;
+      legBR.upper.rotation.x = p.brHip || 0;
+      legBR.lower.rotation.x = p.brKnee || 0;
+    }
+
+    class QuadrupedAnimator {
+      constructor(parts) {
+        this.parts = parts; this.state = 'idle'; this.prevState = 'idle';
+        this.t = 0; this.blendT = 1; this.blendDur = 0.5;
+      }
+      setState(s) {
+        if (s === this.state) return;
+        this.prevState = this.state; this.state = s; this.blendT = 0;
+      }
+      update(dt) {
+        this.t += dt;
+        this.blendT = Math.min(1, this.blendT + dt / this.blendDur);
+        const fn  = QUAD_POSES[this.state]     || idlePose;
+        const pfn = QUAD_POSES[this.prevState] || idlePose;
+        const pose = blendPoses(pfn(this.t), fn(this.t), smoothstep(this.blendT));
+        applyQuadPose(this.parts, pose);
+      }
+    }
+
+    // =========================================================================
+    // GLB MODEL LOADING — bone-driven animation for URDF-exported B2
+    // =========================================================================
+
+    // The GLB is a URDF export with a flat hierarchy: all links are siblings
+    // under the root, and joints are empty leaf nodes under their parent link.
+    // We reconstruct the kinematic chain so rotating a joint moves everything
+    // below it (thigh → calf → foot).
+    const KINEMATIC_CHAIN = [
+      ['FL_hip_joint', 'FL_hip'],
+      ['FL_thigh_joint', 'FL_thigh'],
+      ['FL_calf_joint', 'FL_calf'],
+      ['FL_foot_joint', 'FL_foot'],
+      ['FR_hip_joint', 'FR_hip'],
+      ['FR_thigh_joint', 'FR_thigh'],
+      ['FR_calf_joint', 'FR_calf'],
+      ['FR_foot_joint', 'FR_foot'],
+      ['RL_hip_joint', 'RL_hip'],
+      ['RL_thigh_joint', 'RL_thigh'],
+      ['RL_calf_joint', 'RL_calf'],
+      ['RL_foot_joint', 'RL_foot'],
+      ['RR_hip_joint', 'RR_hip'],
+      ['RR_thigh_joint', 'RR_thigh'],
+      ['RR_calf_joint', 'RR_calf'],
+      ['RR_foot_joint', 'RR_foot'],
+      ['joint_head', 'head_Link'],
+    ];
+
+    class GLBQuadAnimator {
+      constructor(bones) {
+        this.bones = bones;
+        this.state = 'idle';
+        this.prevState = 'idle';
+        this.t = 0;
+        this.blendT = 1;
+        this.blendDur = 0.5;
+        this.baseRestY = bones.base?.position.y ?? 0;
+      }
+      setState(s) {
+        if (s === this.state) return;
+        this.prevState = this.state;
+        this.state = s;
+        this.blendT = 0;
+      }
+      update(dt) {
+        this.t += dt;
+        this.blendT = Math.min(1, this.blendT + dt / this.blendDur);
+        const fn  = QUAD_POSES[this.state]     || idlePose;
+        const pfn = QUAD_POSES[this.prevState] || idlePose;
+        const pose = blendPoses(pfn(this.t), fn(this.t), smoothstep(this.blendT));
+        this.applyPose(pose);
+      }
+      applyPose(p) {
+        const b = this.bones;
+
+        // GLB model faces +X; leg swing is rotation around local Z.
+        // Negated because +Z rotation moves foot forward but pose convention
+        // has positive = backward swing.
+
+        if (b.base) {
+          b.base.position.y = this.baseRestY + (p.bodyY || 0);
+          b.base.rotation.x = p.bodyRoll || 0;
+          b.base.rotation.z = p.bodyPitch || 0;
+        }
+        if (b.head) {
+          b.head.rotation.y = p.headYaw || 0;
+          b.head.rotation.x = p.headPitch || 0;
+        }
+
+        // FL → fl, FR → fr, RL → bl, RR → br
+        if (b.flThigh) b.flThigh.rotation.z = -(p.flHip || 0);
+        if (b.flCalf)  b.flCalf.rotation.z  = -(p.flKnee || 0);
+        if (b.frThigh) b.frThigh.rotation.z = -(p.frHip || 0);
+        if (b.frCalf)  b.frCalf.rotation.z  = -(p.frKnee || 0);
+        if (b.rlThigh) b.rlThigh.rotation.z = -(p.blHip || 0);
+        if (b.rlCalf)  b.rlCalf.rotation.z  = -(p.blKnee || 0);
+        if (b.rrThigh) b.rrThigh.rotation.z = -(p.brHip || 0);
+        if (b.rrCalf)  b.rrCalf.rotation.z  = -(p.brKnee || 0);
+      }
+    }
+
+    function loadRobotModel() {
+      return new Promise((resolve, reject) => {
+        const loader = new THREE.GLTFLoader();
+        const draco = new THREE.DRACOLoader();
+        draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.4.3/');
+        loader.setDRACOLoader(draco);
+
+        loader.load('robot.glb', gltf => {
+          const model = gltf.scene || new THREE.Group();
+
+          // Index all named nodes
+          const nodes = {};
+          model.traverse(n => { if (n.name) nodes[n.name] = n; });
+
+          // Reconstruct kinematic chain: re-parent each link under its joint
+          // using attach() to preserve world transforms
+          model.updateMatrixWorld(true);
+          for (const [jointName, linkName] of KINEMATIC_CHAIN) {
+            const joint = nodes[jointName];
+            const link  = nodes[linkName];
+            if (joint && link) joint.attach(link);
+          }
+
+          // Rotate model so +X (URDF forward) maps to +Z (Three.js / procedural forward)
+          model.rotation.y = -Math.PI / 2;
+
+          // Enable shadows
+          model.traverse(o => {
+            if (o.isMesh) {
+              o.castShadow = true;
+              o.receiveShadow = true;
+              if (o.material) o.material.needsUpdate = true;
+            }
+          });
+
+          // Center and scale
+          model.updateMatrixWorld(true);
+          const box = new THREE.Box3().setFromObject(model);
+          const size = new THREE.Vector3(); box.getSize(size);
+          const center = new THREE.Vector3(); box.getCenter(center);
+          model.position.x -= center.x;
+          model.position.z -= center.z;
+
+          const targetHeight = 0.65;
+          if (size.y > 0.0001) model.scale.setScalar(targetHeight / size.y);
+
+          model.updateMatrixWorld(true);
+          const adjusted = new THREE.Box3().setFromObject(model);
+          if (isFinite(adjusted.min.y)) model.position.y -= adjusted.min.y;
+
+          console.log('Loaded B2 GLB', {
+            size: { x: size.x.toFixed(2), y: size.y.toFixed(2), z: size.z.toFixed(2) },
+            joints: Object.keys(nodes).filter(n => n.includes('joint')).length,
+          });
+
+          // Build bone references for the animator
+          const bones = {
+            base:    nodes.base_link,
+            head:    nodes.joint_head,
+            flThigh: nodes.FL_thigh_joint,
+            flCalf:  nodes.FL_calf_joint,
+            frThigh: nodes.FR_thigh_joint,
+            frCalf:  nodes.FR_calf_joint,
+            rlThigh: nodes.RL_thigh_joint,
+            rlCalf:  nodes.RL_calf_joint,
+            rrThigh: nodes.RR_thigh_joint,
+            rrCalf:  nodes.RR_calf_joint,
+          };
+
+          resolve({ group: model, animator: new GLBQuadAnimator(bones) });
+        }, undefined, err => reject(err));
+      });
+    }
+
+    // =========================================================================
+    // SCENE
+    // =========================================================================
+    function initScene(container) {
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      container.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x000000);
+      scene.fog = new THREE.Fog(0x000000, 8, 28);
+
+      const camera = new THREE.PerspectiveCamera(
+        42, container.clientWidth / container.clientHeight, 0.1, 100
+      );
+
+      // ── Lights: warm studio setup ──
+      scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xeae5dc, 0.4));
+
+      const key = new THREE.DirectionalLight(0xfff9f5, 2.0);
+      key.position.set(3, 6, 4);
+      key.castShadow = true;
+      key.shadow.mapSize.set(2048, 2048);
+      key.shadow.camera.near = 0.5; key.shadow.camera.far = 20;
+      key.shadow.camera.left = -5; key.shadow.camera.right = 5;
+      key.shadow.camera.top = 5; key.shadow.camera.bottom = -2;
+      key.shadow.bias = -0.001;
+      key.shadow.normalBias = 0.02;
+      scene.add(key);
+
+      const fill = new THREE.DirectionalLight(0xb0c8ff, 0.7);
+      fill.position.set(-4, 3, -2);
+      scene.add(fill);
+
+      const back = new THREE.DirectionalLight(0xffe8d0, 0.4);
+      back.position.set(0, 2, -4);
+      scene.add(back);
+
+      const bounce = new THREE.PointLight(0xffffff, 0.2, 5);
+      bounce.position.set(0, 0.1, 1);
+      scene.add(bounce);
+
+      // ── Floor ──
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(30, 30),
+        new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.85, metalness: 0.0 })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      // ── Robot ──
+      let robot = { group: null, animator: null };
+      let lastAction = 'idle';
+
+      function setRobot(group, animator) {
+        if (robot.group) scene.remove(robot.group);
+        robot = { group, animator };
+        scene.add(group);
+      }
+
+      // Immediate procedural fallback
+      const fallback = buildB2();
+      setRobot(fallback.group, new QuadrupedAnimator(fallback.parts));
+
+      // Try loading GLB
+      loadRobotModel().then(loaded => {
+        loaded.animator.setState(lastAction);
+        setRobot(loaded.group, loaded.animator);
+      }).catch(() => console.warn('GLB failed to load; using procedural B2'));
+
+      // ── Camera orbit — cinematic, slow for presentation ──
+      const orbit = { theta: 0, phi: Math.PI / 6, radius: 3.2, auto: true, drag: false, lx: 0, ly: 0 };
+
+      function updateCam() {
+        camera.position.set(
+          orbit.radius * Math.sin(orbit.theta) * Math.cos(orbit.phi),
+          orbit.radius * Math.sin(orbit.phi) + 0.35,
+          orbit.radius * Math.cos(orbit.theta) * Math.cos(orbit.phi)
+        );
+        camera.lookAt(0, 0.25, 0);
+      }
+      updateCam();
+
+      const canvas = renderer.domElement;
+      canvas.addEventListener('mousedown', e => {
+        orbit.drag = true; orbit.auto = false; orbit.lx = e.clientX; orbit.ly = e.clientY;
+      });
+      window.addEventListener('mousemove', e => {
+        if (!orbit.drag) return;
+        orbit.theta -= (e.clientX - orbit.lx) * 0.005;
+        orbit.phi = Math.max(0.05, Math.min(Math.PI / 2.5, orbit.phi - (e.clientY - orbit.ly) * 0.005));
+        orbit.lx = e.clientX; orbit.ly = e.clientY;
+        updateCam();
+      });
+      window.addEventListener('mouseup', () => { orbit.drag = false; });
+
+      canvas.addEventListener('wheel', e => {
+        orbit.radius = Math.max(1.8, Math.min(6, orbit.radius + e.deltaY * 0.004));
+        updateCam();
+      }, { passive: true });
+
+      let touchX, touchY;
+      canvas.addEventListener('touchstart', e => {
+        if (e.touches.length === 1) {
+          orbit.auto = false;
+          touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
+        }
+      });
+      canvas.addEventListener('touchmove', e => {
+        if (e.touches.length === 1) {
+          orbit.theta -= (e.touches[0].clientX - touchX) * 0.005;
+          orbit.phi = Math.max(0.05, Math.min(Math.PI / 2.5, orbit.phi - (e.touches[0].clientY - touchY) * 0.005));
+          touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
+          updateCam();
+        }
+      });
+
+      // ── Tween system ──
+      const tweens = [];
+      function easeOutBack(t) { const s = 1.70158; t -= 1; return 1 + t * t * ((s + 1) * t + s); }
+      function addTween(update, duration = 0.4) { tweens.push({ t: 0, d: duration, update }); }
+
+      // ── Ring pulse ──
+      function triggerPulse() {
+        const geo = new THREE.RingGeometry(0.1, 0.14, 64);
+        const mat = new THREE.MeshBasicMaterial({
+          color: 0xFF4D00, transparent: true, opacity: 0.45, side: THREE.DoubleSide,
+        });
+        const ring = new THREE.Mesh(geo, mat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(robot.group ? robot.group.position.x : 0, 0.003, robot.group ? robot.group.position.z : 0);
+        scene.add(ring);
+        addTween((t) => {
+          const s = 1 + t * 14;
+          ring.scale.set(s, s, 1);
+          ring.material.opacity = 0.45 * (1 - t);
+          if (t >= 1) { scene.remove(ring); geo.dispose(); mat.dispose(); return true; }
+          return false;
+        }, 0.9);
+      }
+
+      // ── Spawn management ──
+      const spawned = [];
+
+      function spawnWithAnim(obj) {
+        obj.scale.set(0, 0, 0);
+        scene.add(obj);
+        spawned.push(obj);
+        addTween((t) => {
+          const k = easeOutBack(Math.min(1, t));
+          obj.scale.setScalar(k);
+          return t >= 1;
+        });
+
+        // Burst ring
+        const ringGeo = new THREE.TorusGeometry(0.4, 0.01, 8, 32);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xFF4D00, transparent: true, opacity: 0.5 });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.copy(obj.position);
+        scene.add(ring);
+        addTween((t) => {
+          const k = Math.min(1, t);
+          ring.scale.setScalar(0.4 + k * 1.2);
+          ring.material.opacity = 0.5 * (1 - k);
+          if (k >= 1) { scene.remove(ring); ringGeo.dispose(); ringMat.dispose(); return true; }
+          return false;
+        }, 0.5);
+      }
+
+      function clearSpawnedWithAnim() {
+        for (const obj of spawned) {
+          addTween((t) => {
+            const k = 1 - Math.min(1, t);
+            obj.scale.setScalar(Math.max(0, k));
+            if (k <= 0) { scene.remove(obj); return true; }
+            return false;
+          }, 0.25);
+        }
+        spawned.length = 0;
+      }
+
+      // ── Resize ──
+      function onResize() {
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+      }
+      window.addEventListener('resize', onResize);
+
+      // ── Render loop ──
+      const clock = new THREE.Clock();
+      let rafId;
+
+      function tick() {
+        rafId = requestAnimationFrame(tick);
+        const dt = clock.getDelta();
+
+        if (orbit.auto) { orbit.theta += 0.0008; updateCam(); }
+        robot.animator?.update(dt);
+
+        for (let i = tweens.length - 1; i >= 0; i--) {
+          const tw = tweens[i];
+          tw.t += dt / tw.d;
+          if (tw.update(tw.t)) tweens.splice(i, 1);
+        }
+
+        renderer.render(scene, camera);
+      }
+      tick();
+
+      // ── Public API ──
+      return {
+        setAction(s) {
+          lastAction = s;
+          robot.animator?.setState(s);
+          triggerPulse();
+        },
+        spawnItems(items) {
+          for (const item of items) {
+            const obj = spawnObject(item);
+            if (obj) spawnWithAnim(obj);
+          }
+        },
+        clearSpawned: clearSpawnedWithAnim,
+        destroy() {
+          cancelAnimationFrame(rafId);
+          window.removeEventListener('resize', onResize);
+          renderer.dispose();
+          if (renderer.domElement.parentNode === container) container.removeChild(renderer.domElement);
+        },
+      };
+    }
+
+    // =========================================================================
+    // SPAWN OBJECTS
+    // =========================================================================
+    const COLORS = {
+      red: 0xe03030, blue: 0x3060e0, green: 0x30b060, yellow: 0xe0c030,
+      orange: 0xe07830, white: 0xd0d0d8, gray: 0x606070, purple: 0x8040c0, cyan: 0x30c0e0,
+    };
+
+    function spawnObject(item) {
+      const color = COLORS[(item.color || '').toLowerCase()] ?? 0x4a9eff;
+      const [px = 1, py = 0, pz = 0] = item.position || [];
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.3 });
+
+      let mesh;
+      switch (item.type) {
+        case 'sphere':
+          mesh = new THREE.Mesh(new THREE.SphereGeometry(0.18, 20, 14), mat);
+          mesh.position.set(px, py + 0.18, pz); break;
+        case 'cylinder':
+          mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.36, 16), mat);
+          mesh.position.set(px, py + 0.18, pz); break;
+        case 'table': {
+          const g = new THREE.Group();
+          const top = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.06, 0.6), mat);
+          top.position.y = 0.75; g.add(top);
+          for (const [lx, lz] of [[-0.42,-0.24],[0.42,-0.24],[-0.42,0.24],[0.42,0.24]]) {
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.75, 0.06), mat);
+            leg.position.set(lx, 0.375, lz); g.add(leg);
+          }
+          g.position.set(px, py, pz);
+          g.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+          return g;
+        }
+        case 'conveyor_belt': {
+          const g = new THREE.Group();
+          const belt = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 0.5),
+            new THREE.MeshStandardMaterial({ color: 0x222230, roughness: 0.8, metalness: 0.4 }));
+          belt.position.y = 0.5; g.add(belt);
+          for (let i = -0.8; i <= 0.8; i += 0.2) {
+            const s = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.01, 0.48),
+              new THREE.MeshStandardMaterial({ color: 0x444455 }));
+            s.position.set(i, 0.56, 0); g.add(s);
+          }
+          g.position.set(px, py, pz);
+          g.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+          return g;
+        }
+        case 'package_stack': {
+          const g = new THREE.Group();
+          for (let i = 0; i < 3; i++) {
+            const pkg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.22),
+              new THREE.MeshStandardMaterial({ color: 0xc08840, roughness: 0.7, metalness: 0.1 }));
+            pkg.position.set((Math.random() - 0.5) * 0.06, i * 0.23 + 0.11, (Math.random() - 0.5) * 0.06);
+            pkg.castShadow = true; g.add(pkg);
+          }
+          g.position.set(px, py, pz); return g;
+        }
+        default:
+          mesh = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 0.28), mat);
+          mesh.position.set(px, py + 0.14, pz);
+      }
+      if (mesh) { mesh.castShadow = true; mesh.receiveShadow = true; }
+      return mesh;
+    }
+
+    // =========================================================================
+    // COMMANDS (each includes training compute data)
+    // =========================================================================
+    const BUILT_IN_COMMANDS = [
+      {
+        label: 'Patrol',
+        match: ['patrol', 'guard', 'watch', 'monitor', 'secure', 'surveillance'],
+        action: 'patrol', spawnItems: [],
+        narration: 'Autonomous patrol — continuous SLAM + obstacle avoidance across dynamic environments.',
+        training: { simSteps: 2_500_000_000, gpuHours: 4200, datasetTB: 15, modelParams: 800, envCount: 100_000 },
+      },
+      {
+        label: 'Inspect',
+        match: ['inspect', 'check', 'examine', 'diagnose', 'assess'],
+        action: 'inspect', spawnItems: [],
+        narration: 'Multi-sensor anomaly detection — thermal + visual fusion identifies defects invisible to the human eye.',
+        training: { simSteps: 1_800_000_000, gpuHours: 3100, datasetTB: 22, modelParams: 1200, envCount: 45_000 },
+      },
+      {
+        label: 'Trot',
+        match: ['walk', 'go', 'move', 'run', 'trot', 'forward', 'come'],
+        action: 'trot', spawnItems: [],
+        narration: 'Coordinated locomotion — each leg trajectory computed 500x/sec for stability on any terrain.',
+        training: { simSteps: 8_000_000_000, gpuHours: 6800, datasetTB: 4.2, modelParams: 650, envCount: 250_000 },
+      },
+      {
+        label: 'Sit',
+        match: ['sit', 'stay', 'wait', 'rest', 'down'],
+        action: 'sit', spawnItems: [],
+        narration: 'Controlled posture transition — power drops 70% while sensors stay active, ready in milliseconds.',
+        training: { simSteps: 400_000_000, gpuHours: 580, datasetTB: 1.1, modelParams: 650, envCount: 8_000 },
+      },
+      {
+        label: 'Search',
+        match: ['search', 'find', 'rescue', 'locate', 'survivor', 'detect'],
+        action: 'patrol', spawnItems: [],
+        narration: 'Systematic coverage with thermal + acoustic scanning for signs of life beneath rubble.',
+        training: { simSteps: 5_200_000_000, gpuHours: 7400, datasetTB: 38, modelParams: 1500, envCount: 180_000 },
+      },
+      {
+        label: 'Scan',
+        match: ['scan', 'look', 'survey', 'map', 'observe'],
+        action: 'inspect', spawnItems: [],
+        narration: 'LiDAR + stereo depth fusion into centimeter-accurate 3D reconstruction in real time.',
+        training: { simSteps: 3_100_000_000, gpuHours: 4800, datasetTB: 28, modelParams: 900, envCount: 72_000 },
+      },
+      {
+        label: 'Navigate',
+        match: ['navigate', 'terrain', 'climb', 'stairs', 'obstacle', 'rough'],
+        action: 'trot',
+        spawnItems: [
+          { type: 'box', color: 'gray', position: [1.2, 0, 0.3] },
+          { type: 'box', color: 'gray', position: [1.2, 0.28, 0.3] },
+        ],
+        narration: 'Adaptive gait control — footfall placement computed from depth perception across rough terrain.',
+        training: { simSteps: 10_000_000_000, gpuHours: 9200, datasetTB: 8.5, modelParams: 800, envCount: 320_000 },
+      },
+      {
+        label: 'Deliver',
+        match: ['deliver', 'carry', 'transport', 'bring', 'fetch', 'package'],
+        action: 'trot',
+        spawnItems: [{ type: 'box', color: 'orange', position: [0.8, 0, -0.3] }],
+        narration: 'Payload stabilization — body compensates for shifting center of mass during transport.',
+        training: { simSteps: 3_800_000_000, gpuHours: 5100, datasetTB: 6.3, modelParams: 750, envCount: 95_000 },
+      },
+      {
+        label: 'Greet',
+        match: ['greet', 'hello', 'hi', 'wave', 'approach', 'meet'],
+        action: 'alert', spawnItems: [],
+        narration: 'Social orientation — non-threatening posture calibrated from human behavioral prediction models.',
+        training: { simSteps: 900_000_000, gpuHours: 2200, datasetTB: 12, modelParams: 1100, envCount: 35_000 },
+      },
+      {
+        label: 'Factory',
+        match: ['factory', 'warehouse', 'conveyor', 'production', 'assembly'],
+        action: 'patrol',
+        spawnItems: [
+          { type: 'conveyor_belt', color: 'gray', position: [0, 0, -0.8] },
+          { type: 'package_stack', color: 'orange', position: [-1.5, 0, -0.8] },
+        ],
+        narration: 'Production line monitoring — temporal anomaly detection across thousands of equipment failure modes.',
+        training: { simSteps: 6_400_000_000, gpuHours: 8500, datasetTB: 42, modelParams: 1400, envCount: 150_000 },
+      },
+      {
+        label: 'Idle',
+        match: ['idle', 'stand', 'neutral', 'standby', 'stop'],
+        action: 'idle', spawnItems: [],
+        narration: 'Active balance — 12 actuators compensate for ground vibration and wind at 500 Hz.',
+        training: { simSteps: 200_000_000, gpuHours: 320, datasetTB: 0.8, modelParams: 650, envCount: 5_000 },
+      },
+      {
+        label: 'Reset',
+        match: ['clear', 'reset', 'empty', 'clean'],
+        action: 'idle', spawnItems: [],
+        narration: 'Scene cleared. Ready for next task.',
+        training: { simSteps: 0, gpuHours: 0, datasetTB: 0, modelParams: 0, envCount: 0 },
+        clearFirst: true,
+      },
+    ];
+
+    function processCommand(text) {
+      const lower = text.toLowerCase();
+      const tokens = lower.split(/\s+/);
+      let best = null, bestScore = 0;
+      for (const cmd of BUILT_IN_COMMANDS) {
+        const score = cmd.match.filter(kw => tokens.some(t => t.includes(kw)) || lower.includes(kw)).length;
+        if (score > bestScore) { bestScore = score; best = cmd; }
+      }
+      if (!best || bestScore === 0) {
+        return {
+          label: 'Interpret',
+          action: 'inspect', spawnItems: [],
+          narration: 'Natural-language grounding — mapping ambiguous text to robot action demonstrations.',
+          training: { simSteps: 1_200_000_000, gpuHours: 3400, datasetTB: 18, modelParams: 1100, envCount: 60_000 },
+          clearFirst: false,
+        };
+      }
+      return { ...best };
+    }
+
+    async function callClaude(_apiKey, userMessage) {
+      await new Promise(r => setTimeout(r, 400 + Math.random() * 300));
+      return processCommand(userMessage);
+    }
+
+    // =========================================================================
+    // SUGGESTIONS
+    // =========================================================================
+    const SUGGESTIONS = [
+      { label: 'Patrol', cmd: 'patrol the area' },
+      { label: 'Inspect', cmd: 'inspect surroundings' },
+      { label: 'Navigate', cmd: 'navigate rough terrain' },
+      { label: 'Search', cmd: 'search for survivors' },
+      { label: 'Reset', cmd: 'reset scene' },
+    ];
+
+    // =========================================================================
+    // ANIMATED COUNTER HOOK
+    // =========================================================================
+    function useAnimatedNumber(target, duration = 1200) {
+      const [display, setDisplay] = useState(0);
+      const rafRef = useRef(null);
+      const startRef = useRef(null);
+      const fromRef = useRef(0);
+
+      useEffect(() => {
+        if (target === 0) { setDisplay(0); return; }
+        fromRef.current = 0;
+        startRef.current = null;
+
+        function tick(ts) {
+          if (!startRef.current) startRef.current = ts;
+          const elapsed = ts - startRef.current;
+          const t = Math.min(1, elapsed / duration);
+          const eased = 1 - Math.pow(1 - t, 3);
+          setDisplay(Math.round(fromRef.current + (target - fromRef.current) * eased));
+          if (t < 1) rafRef.current = requestAnimationFrame(tick);
+        }
+        rafRef.current = requestAnimationFrame(tick);
+        return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+      }, [target, duration]);
+
+      return display;
+    }
+
+    // =========================================================================
+    // FORMAT HELPERS
+    // =========================================================================
+    function fmtBig(n) {
+      if (n >= 1_000_000_000) return { value: (n / 1_000_000_000).toFixed(1), suffix: 'B' };
+      if (n >= 1_000_000) return { value: (n / 1_000_000).toFixed(0), suffix: 'M' };
+      if (n >= 1_000) return { value: (n / 1_000).toFixed(1), suffix: 'K' };
+      return { value: String(n), suffix: '' };
+    }
+
+    function fmtCompact(n) {
+      if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B';
+      if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+      if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+      return String(n);
+    }
+
+    function capabilityIncrement(training) {
+      // Data-driven proxy for "capability": richer models + environments + compute.
+      const sim = Math.log10(Math.max(1, training.simSteps));
+      const gpu = Math.log10(Math.max(1, training.gpuHours));
+      const data = Math.log10(Math.max(1, training.datasetTB * 1000));
+      const params = Math.log10(Math.max(1, training.modelParams * 1_000_000));
+      const env = Math.log10(Math.max(1, training.envCount));
+      return sim * 0.24 + gpu * 0.2 + data * 0.16 + params * 0.24 + env * 0.16;
+    }
+
+    // =========================================================================
+    // REACT: DataPanel (animated training metrics)
+    // =========================================================================
+    function DataPanel({ training, narration }) {
+      const simSteps = useAnimatedNumber(training.simSteps, 1400);
+      const gpuHours = useAnimatedNumber(training.gpuHours, 1000);
+      const datasetTB = useAnimatedNumber(Math.round(training.datasetTB * 10), 800);
+      const modelParams = useAnimatedNumber(training.modelParams, 900);
+
+      const sim = fmtBig(simSteps);
+      const gpu = fmtBig(gpuHours);
+      const dataVal = (datasetTB / 10).toFixed(1);
+
+      return (
+        <div className="data-panel">
+          <div className="data-panel-narration">{narration}</div>
+          <div className="data-metrics">
+            <div className="data-metric">
+              <div className="data-metric-value">{sim.value}<span className="data-metric-suffix">{sim.suffix}</span></div>
+              <div className="data-metric-label">Sim Steps</div>
+            </div>
+            <div className="data-metric">
+              <div className="data-metric-value">{gpu.value}<span className="data-metric-suffix">{gpu.suffix}</span></div>
+              <div className="data-metric-label">GPU Hours</div>
+            </div>
+            <div className="data-metric">
+              <div className="data-metric-value">{dataVal}<span className="data-metric-suffix">TB</span></div>
+              <div className="data-metric-label">Dataset</div>
+            </div>
+            <div className="data-metric">
+              <div className="data-metric-value">{modelParams}<span className="data-metric-suffix">M</span></div>
+              <div className="data-metric-label">Parameters</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // REACT: ScalingCurve
+    // =========================================================================
+    function ScalingCurve({ points }) {
+      const W = 260, H = 160;
+      const pad = { top: 14, right: 16, bottom: 28, left: 36 };
+      const plotW = W - pad.left - pad.right;
+      const plotH = H - pad.top - pad.bottom;
+
+      const llmPoints = [];
+      for (let i = 0; i <= 40; i++) {
+        const t = i / 40;
+        llmPoints.push({ x: t, y: Math.pow(t, 0.45) });
+      }
+
+      const SIM_AXIS_MIN_EXP = 8;  // 1e8
+      const SIM_AXIS_MAX_EXP = 11; // 1e11
+      const CAPABILITY_AXIS_MAX = 40;
+      const simValues = points.map(p => Math.max(1, p.cumulative.simSteps));
+      const logSim = simValues.map(v => Math.log10(v));
+      const minX = SIM_AXIS_MIN_EXP;
+      const maxX = Math.max(SIM_AXIS_MAX_EXP, ...logSim);
+      const minY = 0;
+      const maxY = CAPABILITY_AXIS_MAX;
+      const xSpan = Math.max(1e-6, maxX - minX);
+      const ySpan = Math.max(1e-6, maxY - minY);
+
+      const robotPoints = points.map((pt) => {
+        const rawX = (Math.log10(Math.max(1, pt.cumulative.simSteps)) - minX) / xSpan;
+        const x = Math.max(0, Math.min(1, rawX));
+        const rawY = (pt.cumulative.capabilityIndex - minY) / ySpan;
+        const y = Math.max(0, Math.min(1, rawY));
+        return { id: pt.id, x, y };
+      });
+
+      function toSvg(pt) {
+        return {
+          x: pad.left + pt.x * plotW,
+          y: pad.top + plotH - pt.y * plotH,
+        };
+      }
+
+      const llmPath = llmPoints.map((p, i) => {
+        const s = toSvg(p);
+        return (i === 0 ? 'M' : 'L') + s.x.toFixed(1) + ',' + s.y.toFixed(1);
+      }).join(' ');
+
+      const robotPath = robotPoints.map((p, i) => {
+        const s = toSvg(p);
+        return (i === 0 ? 'M' : 'L') + s.x.toFixed(1) + ',' + s.y.toFixed(1);
+      }).join(' ');
+
+      const markerPt = robotPoints[robotPoints.length - 1];
+      const marker = markerPt ? toSvg(markerPt) : null;
+
+      const xLabelExponents = [8, 9, 10, 11];
+      const xLabels = xLabelExponents.map(exp => `1e${exp}`);
+      const yLabels = ['0', '', '', '1.0'];
+
+      return (
+        <div className="scaling-panel">
+          <div className="scaling-header">Scaling Curve</div>
+          <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="scaling-svg">
+            {/* Grid lines */}
+            {[0, 0.25, 0.5, 0.75, 1].map(t => {
+              const y = pad.top + plotH - t * plotH;
+              return <line key={`h${t}`} x1={pad.left} y1={y} x2={pad.left + plotW} y2={y} stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" />;
+            })}
+            {[0, 0.33, 0.66, 1].map(t => {
+              const x = pad.left + t * plotW;
+              return <line key={`v${t}`} x1={x} y1={pad.top} x2={x} y2={pad.top + plotH} stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" />;
+            })}
+
+            {/* LLM reference curve */}
+            <path d={llmPath} fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.7" />
+
+            {/* Robot curve */}
+            {points.length > 0 && (
+              <path d={robotPath} fill="none" stroke="#FF4D00" strokeWidth="2.5" strokeLinecap="round" />
+            )}
+
+            {/* Data points */}
+            {robotPoints.map((pt) => {
+              const s = toSvg(pt);
+              return (
+                <g key={pt.id}>
+                  <circle cx={s.x} cy={s.y} r="3.5" fill="#FF4D00" />
+                  <circle cx={s.x} cy={s.y} r="6" fill="none" stroke="#FF4D00" strokeWidth="1" opacity="0.3" />
+                </g>
+              );
+            })}
+
+            {/* "We are here" marker */}
+            {marker && points.length > 0 && (
+              <g>
+                <line x1={marker.x} y1={marker.y - 8} x2={marker.x} y2={marker.y - 22} stroke="#FF4D00" strokeWidth="1" opacity="0.5" />
+                <text x={marker.x} y={marker.y - 25} textAnchor="middle" fontSize="8" fill="#FF4D00" fontFamily="Outfit, sans-serif" fontWeight="600">
+                  We are here
+                </text>
+              </g>
+            )}
+
+            {/* "LLMs" label at end of dashed curve */}
+            <text x={pad.left + plotW - 20} y={pad.top + 8} textAnchor="end" fontSize="8" fill="rgba(255,255,255,0.7)" fontFamily="Outfit, sans-serif" fontWeight="500">
+              LLM trend (reference)
+            </text>
+
+            {/* Axis labels */}
+            <text x={pad.left + plotW / 2} y={H - 4} textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.7)" fontFamily="Outfit, sans-serif" fontWeight="500">
+              Cumulative Sim Steps (log)
+            </text>
+            {xLabels.map((label, i) => {
+              const x = pad.left + (i / (xLabels.length - 1)) * plotW;
+              return <text key={label} x={x} y={pad.top + plotH + 14} textAnchor="middle" fontSize="7" fill="rgba(255,255,255,0.6)" fontFamily="Outfit, sans-serif">{label}</text>;
+            })}
+            <text x={8} y={pad.top + plotH / 2} textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.7)" fontFamily="Outfit, sans-serif" fontWeight="500" transform={`rotate(-90, 8, ${pad.top + plotH / 2})`}>
+              Capability Index
+            </text>
+            {yLabels.map((label, i) => {
+              if (!label) return null;
+              const y = pad.top + plotH - (i / (yLabels.length - 1)) * plotH;
+              return <text key={label} x={pad.left - 6} y={y + 2} textAnchor="end" fontSize="7" fill="rgba(255,255,255,0.6)" fontFamily="Outfit, sans-serif">{label}</text>;
+            })}
+          </svg>
+
+          <div className="scaling-footer">
+            <div className="scaling-legend">
+              <span className="scaling-legend-item">
+                <span className="scaling-legend-line" style={{ background: '#FF4D00' }} />
+                Robotics
+              </span>
+              <span className="scaling-legend-item">
+                <span className="scaling-legend-line" style={{ background: 'rgba(255,255,255,0.5)', backgroundImage: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.5) 0 4px, transparent 4px 7px)' }} />
+                LLMs
+              </span>
+            </div>
+            {points.length > 0 && (
+              <span className="scaling-thesis">{points.length} task{points.length !== 1 ? 's' : ''} — same model</span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // REACT: TopBar (with cumulative compute)
+    // =========================================================================
+    function TopBar({ isLoading, cumulative }) {
+      const hasCum = cumulative.simSteps > 0;
+
+      return (
+        <div className="top-bar">
+          <div className="top-bar-left">
+            <span className="wordmark">VESSEL</span>
+          </div>
+          <div className="top-bar-right">
+            {hasCum && (
+              <div className="cumulative-stats">
+                <div className="cum-stat">
+                  <span className="cum-stat-value">{fmtCompact(cumulative.simSteps)}</span>
+                  <span className="cum-stat-unit">sim steps</span>
+                </div>
+                <div className="cum-divider" />
+                <div className="cum-stat">
+                  <span className="cum-stat-value">{fmtCompact(cumulative.gpuHours)}</span>
+                  <span className="cum-stat-unit">GPU-hrs</span>
+                </div>
+                <div className="cum-divider" />
+                <div className="cum-stat">
+                  <span className="cum-stat-value">{cumulative.datasetTB.toFixed(1)}</span>
+                  <span className="cum-stat-unit">TB data</span>
+                </div>
+              </div>
+            )}
+            <div className={`status-dot ${isLoading ? 'loading' : ''}`} />
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // REACT: App
+    // =========================================================================
+    function App() {
+      const containerRef = useRef(null);
+      const sceneRef     = useRef(null);
+      const inputRef     = useRef(null);
+
+      const [input, setInput]               = useState('');
+      const [lastResult, setLastResult]     = useState(null);
+      const [isLoading, setIsLoading]       = useState(false);
+      const [responseKey, setResponseKey]   = useState(0);
+      const [scalingPoints, setScalingPoints] = useState([]);
+      const [cumulative, setCumulative]     = useState({ simSteps: 0, gpuHours: 0, datasetTB: 0, capabilityIndex: 0 });
+
+      useEffect(() => {
+        if (!containerRef.current || sceneRef.current) return;
+        sceneRef.current = initScene(containerRef.current);
+        return () => { sceneRef.current?.destroy(); sceneRef.current = null; };
+      }, []);
+
+      const handleSend = useCallback(async (text) => {
+        if (!text || isLoading) return;
+        setInput('');
+        setIsLoading(true);
+
+        try {
+          const result = await callClaude(null, text);
+          if (result.clearFirst) {
+            sceneRef.current?.clearSpawned();
+            setScalingPoints([]);
+            setCumulative({ simSteps: 0, gpuHours: 0, datasetTB: 0, capabilityIndex: 0 });
+          }
+          if (result.action) sceneRef.current?.setAction(result.action);
+          if (result.spawnItems?.length) sceneRef.current?.spawnItems(result.spawnItems);
+
+          setLastResult(result);
+          setResponseKey(k => k + 1);
+
+          if (result.training && result.training.simSteps > 0) {
+            setCumulative(prev => ({
+              simSteps: prev.simSteps + result.training.simSteps,
+              gpuHours: prev.gpuHours + result.training.gpuHours,
+              datasetTB: prev.datasetTB + result.training.datasetTB,
+              capabilityIndex: prev.capabilityIndex + capabilityIncrement(result.training),
+            }));
+            setScalingPoints(prev => {
+              const last = prev[prev.length - 1]?.cumulative || { simSteps: 0, gpuHours: 0, datasetTB: 0, capabilityIndex: 0 };
+              const next = {
+                simSteps: last.simSteps + result.training.simSteps,
+                gpuHours: last.gpuHours + result.training.gpuHours,
+                datasetTB: last.datasetTB + result.training.datasetTB,
+                capabilityIndex: last.capabilityIndex + capabilityIncrement(result.training),
+              };
+              return [...prev, { label: result.label, id: Date.now(), cumulative: next }];
+            });
+          }
+        } catch (err) {
+          setLastResult({ narration: `Error: ${err.message}`, training: { simSteps: 0, gpuHours: 0, datasetTB: 0, modelParams: 0, envCount: 0 } });
+          setResponseKey(k => k + 1);
+        } finally {
+          setIsLoading(false);
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }
+      }, [isLoading]);
+
+      const sendFromInput = () => { const t = input.trim(); if (t) handleSend(t); };
+
+      return (
+        <>
+          <div id="scene-container" ref={containerRef} />
+          <div className="scene-vignette" />
+
+          <TopBar isLoading={isLoading} cumulative={cumulative} />
+          <ScalingCurve points={scalingPoints} />
+
+          <div className="bottom-stack">
+            {isLoading && (
+              <div className="loading-card">
+                <div className="loading-dots">
+                  <span /><span /><span />
+                </div>
+              </div>
+            )}
+
+            {!isLoading && lastResult && (
+              <DataPanel
+                key={responseKey}
+                training={lastResult.training}
+                narration={lastResult.narration}
+              />
+            )}
+
+            <div className="chips-row">
+              {SUGGESTIONS.map(s => (
+                <button
+                  key={s.label}
+                  className="chip"
+                  onClick={() => handleSend(s.cmd)}
+                  disabled={isLoading}
+                >{s.label}</button>
+              ))}
+            </div>
+
+            <div className="input-bar">
+              <input
+                ref={inputRef}
+                className="input-field"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && sendFromInput()}
+                placeholder="What should the robot do?"
+                disabled={isLoading}
+                autoFocus
+              />
+              <button
+                className="send-btn"
+                onClick={sendFromInput}
+                disabled={isLoading || !input.trim()}
+              >Send</button>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    // =========================================================================
+    // MOUNT
+    // =========================================================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
