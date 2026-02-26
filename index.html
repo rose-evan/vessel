@@ -120,7 +120,7 @@
     }
 
     .top-bar-left::after {
-      content: 'ROBOTICS SCALING DEMO';
+      content: 'ROBOTICS SCALING';
       font-size: 9px;
       letter-spacing: 0.2em;
       font-weight: 500;
@@ -1489,13 +1489,12 @@
     }
 
     function capabilityIncrement(training) {
-      // Data-driven proxy for "capability": richer models + environments + compute.
       const sim = Math.log10(Math.max(1, training.simSteps));
       const gpu = Math.log10(Math.max(1, training.gpuHours));
       const data = Math.log10(Math.max(1, training.datasetTB * 1000));
       const params = Math.log10(Math.max(1, training.modelParams * 1_000_000));
       const env = Math.log10(Math.max(1, training.envCount));
-      return sim * 0.24 + gpu * 0.2 + data * 0.16 + params * 0.24 + env * 0.16;
+      return sim * 0.10 + gpu * 0.08 + data * 0.06 + params * 0.10 + env * 0.06;
     }
 
     // =========================================================================
@@ -1553,7 +1552,7 @@
 
       const SIM_AXIS_MIN_EXP = 8;  // 1e8
       const SIM_AXIS_MAX_EXP = 11; // 1e11
-      const CAPABILITY_AXIS_MAX = 40;
+      const CAPABILITY_AXIS_MAX = 60;
       const simValues = points.map(p => Math.max(1, p.cumulative.simSteps));
       const logSim = simValues.map(v => Math.log10(v));
       const minX = SIM_AXIS_MIN_EXP;
@@ -1566,8 +1565,8 @@
       const robotPoints = points.map((pt) => {
         const rawX = (Math.log10(Math.max(1, pt.cumulative.simSteps)) - minX) / xSpan;
         const x = Math.max(0, Math.min(1, rawX));
-        const rawY = (pt.cumulative.capabilityIndex - minY) / ySpan;
-        const y = Math.max(0, Math.min(1, rawY));
+        const normalizedY = Math.min(1, (pt.cumulative.capabilityIndex - minY) / ySpan);
+        const y = Math.pow(normalizedY, 0.6);
         return { id: pt.id, x, y };
       });
 
@@ -1645,14 +1644,14 @@
 
             {/* Axis labels */}
             <text x={pad.left + plotW / 2} y={H - 4} textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.7)" fontFamily="Outfit, sans-serif" fontWeight="500">
-              Cumulative Sim Steps (log)
+              Training Compute (log scale)
             </text>
             {xLabels.map((label, i) => {
               const x = pad.left + (i / (xLabels.length - 1)) * plotW;
               return <text key={label} x={x} y={pad.top + plotH + 14} textAnchor="middle" fontSize="7" fill="rgba(255,255,255,0.6)" fontFamily="Outfit, sans-serif">{label}</text>;
             })}
             <text x={8} y={pad.top + plotH / 2} textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.7)" fontFamily="Outfit, sans-serif" fontWeight="500" transform={`rotate(-90, 8, ${pad.top + plotH / 2})`}>
-              Capability Index
+              Capability
             </text>
             {yLabels.map((label, i) => {
               if (!label) return null;
